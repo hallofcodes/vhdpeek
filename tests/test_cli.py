@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import zipfile
+
 import pytest
 
 from vhdpeek.cli import main
@@ -193,3 +196,149 @@ class TestPartSelection:
         code, _out, err = run(capsys, images["two"], "--part", "9")
         assert code == 1
         assert "No partition 9" in err
+
+
+class TestGet:
+    def test_get_file_saves_exact_bytes(self, capsys, images, tmp_path):
+        dest = tmp_path / "readme.txt"
+        code, out, err = run(capsys, images["ext4"], "--get", "/readme.txt",
+                             "--out", str(dest))
+        assert code == 0
+        assert out == ""            # downloads never pollute stdout
+        assert dest.read_bytes() == SAMPLE["readme.txt"]
+        assert str(dest) in err
+
+    def test_get_file_defaults_to_basename(self, capsys, images, tmp_path,
+                                           monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/readme.txt")
+        assert code == 0
+        assert (tmp_path / "readme.txt").read_bytes() == SAMPLE["readme.txt"]
+
+    def test_get_file_into_existing_directory(self, capsys, images, tmp_path):
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/readme.txt",
+                               "--out", str(tmp_path))
+        assert code == 0
+        assert (tmp_path / "readme.txt").read_bytes() == SAMPLE["readme.txt"]
+
+    def test_get_missing_remote_fails(self, capsys, images, tmp_path):
+        dest = tmp_path / "nope.txt"
+        code, _out, err = run(capsys, images["ext4"], "--get", "/nope.txt",
+                              "--out", str(dest))
+        assert code == 1
+        assert "nope.txt" in err
+        assert not dest.exists()
+
+    def test_get_folder_creates_zip(self, capsys, images, tmp_path):
+        dest = tmp_path / "docs.zip"
+        code, out, _err = run(capsys, images["ext4"], "--get", "/docs",
+                              "--out", str(dest))
+        assert code == 0
+        assert out == ""
+        with zipfile.ZipFile(dest) as archive:
+            assert archive.read("manual.txt") == SAMPLE["docs/manual.txt"]
+
+    def test_get_folder_appends_zip_suffix(self, capsys, images, tmp_path):
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/docs",
+                               "--out", str(tmp_path / "docs"))
+        assert code == 0
+        assert (tmp_path / "docs.zip").is_file()
+
+    def test_get_folder_defaults_to_name_zip(self, capsys, images, tmp_path,
+                                             monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/docs")
+        assert code == 0
+        with zipfile.ZipFile(tmp_path / "docs.zip") as archive:
+            assert archive.read("manual.txt") == SAMPLE["docs/manual.txt"]
+
+    def test_get_root_as_zip(self, capsys, images, tmp_path):
+        dest = tmp_path / "root.zip"
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/",
+                               "--out", str(dest))
+        assert code == 0
+        with zipfile.ZipFile(dest) as archive:
+            names = set(archive.namelist())
+            assert {"readme.txt", "docs/manual.txt",
+                    "data/blob.bin"} <= names
+            assert archive.read("data/blob.bin") == SAMPLE["data/blob.bin"]
+
+    def test_get_empty_dir_is_kept_in_zip(self, capsys, tmp_path):
+        blob = fsgen.build_fat32({"empty/": b"", "full/": b"",
+                                  "full/a.txt": b"A"})
+        disk = vhdgen.assemble_disk(blob, "mbr", 1)
+        image = tmp_path / "empty.vhd"
+        image.write_bytes(vhdgen.wrap_fixed_vhd(disk))
+        dest = tmp_path / "out.zip"
+        code, _out, _err = run(capsys, str(image), "--get", "/",
+                               "--out", str(dest))
+        assert code == 0
+        with zipfile.ZipFile(dest) as archive:
+            assert "empty/" in archive.namelist()
+            assert archive.read("full/a.txt") == b"A"
+
+    def test_get_refuses_overwrite_without_flag(self, capsys, images,
+                                                tmp_path):
+        dest = tmp_path / "readme.txt"
+        dest.write_bytes(b"old")
+        code, _out, err = run(capsys, images["ext4"], "--get", "/readme.txt",
+                              "--out", str(dest))
+        assert code == 1
+        assert "--overwrite" in err
+        assert dest.read_bytes() == b"old"
+
+    def test_get_overwrites_with_flag(self, capsys, images, tmp_path):
+        dest = tmp_path / "readme.txt"
+        dest.write_bytes(b"old")
+        code, _out, _err = run(capsys, images["ext4"], "--get", "/readme.txt",
+                               "--out", str(dest), "--overwrite")
+        assert code == 0
+        assert dest.read_bytes() == SAMPLE["readme.txt"]
+
+    def test_get_inside_a_mounted_iso(self, capsys, images, tmp_path):
+        dest = tmp_path / "manual.txt"
+        code, _out, _err = run(capsys, images["iso_inside"],
+                               "--iso", "/casper/tiny.iso",
+                               "--get", "/docs/manual.txt",
+                               "--out", str(dest))
+        assert code == 0
+        assert dest.read_bytes() == SAMPLE["docs/manual.txt"]
+
+    def test_out_without_get_is_rejected(self, capsys, images, tmp_path):
+        with pytest.raises(SystemExit):
+            main([images["ext4"], "--out", str(tmp_path / "x")])
+        assert os.listdir(tmp_path) == []
+
+    def test_get_quiet_hides_progress(self, capsys, images, tmp_path):
+        dest = tmp_path / "readme.txt"
+        code, out, err = run(capsys, images["ext4"], "--get", "/readme.txt",
+                             "--out", str(dest), "--quiet")
+        assert code == 0
+        assert out == ""
+        assert dest.read_bytes() == SAMPLE["readme.txt"]
+        assert "Saved" not in err
+        assert "Source:" in err     # diagnostics stay; only progress is quiet
+
+    def test_get_folder_with_symlinks(self, capsys, tmp_path):
+        files = {"docs/": b"", "docs/manual.txt": b"Manual\n"}
+        links = {"docs/alias.txt": "manual.txt",
+                 "docs/dangling": "nope",
+                 "docs/cycle": "cycle",
+                 "docs/up": ".."}
+        blob = fsgen.build_ext4(files, links=links)
+        disk = vhdgen.assemble_disk(blob, "mbr", 1)
+        image = tmp_path / "links.vhd"
+        image.write_bytes(vhdgen.wrap_fixed_vhd(disk))
+        dest = tmp_path / "docs.zip"
+        code, out, err = run(capsys, str(image), "--get", "/docs",
+                             "--out", str(dest))
+        assert code == 0
+        assert out == ""
+        with zipfile.ZipFile(dest) as archive:
+            names = set(archive.namelist())
+            assert archive.read("alias.txt") == b"Manual\n"
+            assert "dangling" not in names
+            assert "cycle" not in names
+            assert "up" not in names
+        assert "dangling link" in err
+        assert "directory link" in err

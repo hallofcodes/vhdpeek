@@ -6,6 +6,8 @@ runs.
     vhdpeek <file-or-url> --tree [--max-depth N]
     vhdpeek <file-or-url> --ls /var/log
     vhdpeek <file-or-url> --cat /etc/os-release > os-release
+    vhdpeek <file-or-url> --get /etc/os-release --out os-release
+    vhdpeek <file-or-url> --get /var/log --out logs.zip
     vhdpeek <file-or-url> --iso /ubuntu.iso --ls /casper
     vhdpeek --gui [file-or-url]
 

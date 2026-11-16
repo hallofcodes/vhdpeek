@@ -35,6 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="list one directory")
     parser.add_argument("--cat", metavar="PATH",
                         help="stream a file to stdout")
+    parser.add_argument("--get", metavar="PATH",
+                        help="download a file, or a folder as a .zip archive")
+    parser.add_argument("--out", metavar="LOCAL", default=None,
+                        help="local destination for --get (default: the file "
+                             "name, or the folder name + .zip, here)")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="replace the --get destination if it exists")
+    parser.add_argument("--quiet", action="store_true",
+                        help="suppress --get progress messages")
     parser.add_argument("--iso", metavar="PATH",
                         help="mount an ISO stored inside the filesystem")
     parser.add_argument("--fs", choices=FS_CHOICES, default="auto",

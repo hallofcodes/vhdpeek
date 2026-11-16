@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-16
+
+### Added
+
+- **CLI downloads** — `--get /remote/path --out ./local` saves a file
+  byte-exact, or a folder as a `.zip` archive. `--overwrite` replaces an
+  existing destination; without it the CLI refuses.
+- **GUI save as zip** — `Ctrl+D` (or the `Save .zip…` button) archives the
+  selected file or folder, with progress and cancellation. `Ctrl+E` still
+  copies folders out as folders.
+
 ## [1.0.0] - 2026-10-26
 
 First release with a packaged distribution. Everything below builds on 0.1.0,
@@ -93,6 +104,7 @@ diff against.
 - A malformed keyword argument made the GUI fail on construction.
 - Small images reported their size as `0.0 MiB`.
 
-[Unreleased]: https://github.com/ayomidelog/vhdpeek/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ayomidelog/vhdpeek/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v1.0.0
 [0.1.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v0.1.0

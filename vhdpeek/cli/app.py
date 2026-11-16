@@ -12,6 +12,7 @@ from ..core.source import make_source
 from ..core.volume import format_size
 from ..fs import mount_iso, open_reader, probe
 from .args import build_parser
+from .download import download
 from .render import info, print_listing, print_partitions, print_tree, stream_file
 
 
@@ -52,6 +53,9 @@ def _run(argv: Optional[List[str]] = None) -> int:
     if not args.path:
         parser.error("a path or URL is required unless --gui is used")
 
+    if args.get is None and (args.out is not None or args.overwrite):
+        parser.error("--out and --overwrite require --get")
+
     source = make_source(args.path)
     disk = detect_and_parse(source)
 
@@ -87,6 +91,9 @@ def _run(argv: Optional[List[str]] = None) -> int:
              f"joliet={'yes' if reader.has_joliet else 'no'}  "
              f"rock-ridge={'yes' if reader.has_rock_ridge else 'no'}")
 
+    if args.get is not None:
+        return _download(reader, args)
+
     if args.cat:
         stream_file(reader, args.cat)
         return 0
@@ -94,6 +101,23 @@ def _run(argv: Optional[List[str]] = None) -> int:
         print_listing(reader, args.ls)
         return 0
     print_tree(reader, "", max_depth=args.max_depth)
+    return 0
+
+
+def _download(reader, args) -> int:
+    """Save a remote file, or a remote folder as a zip. Never touches stdout."""
+    try:
+        download(reader, args.get, out=args.out,
+                 overwrite=args.overwrite, quiet=args.quiet)
+    except FileNotFoundError:
+        info(f"No such file or directory: {args.get}")
+        return 1
+    except FileExistsError as exc:
+        info(f"Refusing to overwrite {exc} (use --overwrite)")
+        return 1
+    except OSError as exc:
+        info(f"Download failed: {exc}")
+        return 1
     return 0
 
 

@@ -37,6 +37,8 @@ vhdpeek disk.vhd --parts        # partitions
 vhdpeek disk.vhd                # tree (default)
 vhdpeek disk.vhd --ls /var/log  # one directory
 vhdpeek disk.vhd --cat /etc/os-release
+vhdpeek disk.vhd --get /etc/os-release --out os-release
+vhdpeek disk.vhd --get /var/log --out logs.zip  # folders download as .zip
 
 vhdpeek https://example.com/disk.vhdx --max-depth 2
 
@@ -44,7 +46,9 @@ vhdpeek ubuntu.vhd --iso /casper/ubuntu-24.04-desktop-amd64.iso --ls /
 ```
 
 `--part N` picks a partition, `--fs` overrides detection, `--max-depth N`
-limits the walk. `vhdpeek --help` lists everything.
+limits the walk. `--get` saves a file as-is and a folder as a `.zip`
+archive; `--out` names the destination (default: the remote name, here) and
+`--overwrite` replaces an existing file. `vhdpeek --help` lists everything.
 
 Diagnostics go to stderr, so `--cat` is byte-exact and pipeable into
 `sha256sum`, `tar` or `qemu-system-x86_64 -kernel`. Bad input is reported
@@ -67,11 +71,12 @@ all filesystem work runs off the UI thread.
 ![Nested ISO](assets/gui-screenshot-iso.png)
 
 Copy a file or folder out with `Ctrl+E`; folders are copied recursively, with
-progress and cancellation. Preview shows text as text and anything else as a
-hex dump. **Theme** (`Ctrl+T`) follows the desktop on first run, then
-remembers your choice.
+progress and cancellation. `Ctrl+D` saves the selection as a `.zip` archive
+instead — a folder becomes the whole tree, a file becomes a one-file archive.
+Preview shows text as text and anything else as a hex dump. **Theme**
+(`Ctrl+T`) follows the desktop on first run, then remembers your choice.
 
-`Ctrl+O` file · `Ctrl+U` URL · `Ctrl+E` copy out · `F5` reload · `Ctrl+T` theme · `Esc` cancel
+`Ctrl+O` file · `Ctrl+U` URL · `Ctrl+E` copy out · `Ctrl+D` save .zip · `F5` reload · `Ctrl+T` theme · `Esc` cancel
 
 ## Supported formats
 

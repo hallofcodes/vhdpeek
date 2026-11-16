@@ -25,16 +25,44 @@ def _extent_entries(runs: Sequence[Tuple[int, int, int]]) -> bytes:
     return bytes(body)
 
 
+def _insert_links(tree: dict, links: Dict[str, str]) -> None:
+    """Add symlink nodes; parents are created like `_tree` does."""
+    for link_path, target in sorted(links.items()):
+        parts = [p for p in link_path.split("/") if p]
+        if not parts or link_path.endswith("/"):
+            raise ValueError(f"bad symlink path: {link_path!r}")
+        node = tree
+        for part in parts[:-1]:
+            child = node["children"].setdefault(
+                part, {"dir": True, "children": {}})
+            if not child["dir"]:
+                raise ValueError(
+                    f"symlink {link_path!r} crosses a file: {part!r}")
+            node = child
+        if parts[-1] in node["children"]:
+            raise ValueError(f"symlink {link_path!r} already exists")
+        node["children"][parts[-1]] = {"dir": False, "symlink": target}
+
+
 def build_ext4(files: Dict[str, bytes], block_size: int = 4096,
                inodes_per_group: int = 64,
-               inode_size: int = 256) -> bytes:
+               inode_size: int = 256,
+               links: Optional[Dict[str, str]] = None) -> bytes:
     """
     Build an ext4 image with 64-bit group descriptors, filetype directory
     entries and extent trees at depth 0 and depth 1.
+
+    `links` maps a path to its target; each is stored as a fast symlink
+    (mode 0120000, target in i_block, no data blocks).
     """
     tree = _tree(files)
+    _insert_links(tree, links or {})
     dirs = _walk_dirs(tree)
-    files_list = _walk_files(tree)
+    all_files = _walk_files(tree)
+    files_list = [(path, node) for path, node in all_files
+                  if "symlink" not in node]
+    links_list = [(path, node["symlink"]) for path, node in all_files
+                  if "symlink" in node]
 
     ino_of: Dict[str, int] = {"": 2}
     next_ino = 11
@@ -42,6 +70,9 @@ def build_ext4(files: Dict[str, bytes], block_size: int = 4096,
         ino_of[path] = next_ino
         next_ino += 1
     for path, _node in files_list:
+        ino_of[path] = next_ino
+        next_ino += 1
+    for path, _target in links_list:
         ino_of[path] = next_ino
         next_ino += 1
 
@@ -137,8 +168,13 @@ def build_ext4(files: Dict[str, bytes], block_size: int = 4096,
             (self_ino, ".", 2), (parent_ino, "..", 2)]
         for name, child in sorted(node["children"].items()):
             child_path = f"{path}/{name}" if path else name
-            entries.append((ino_of[child_path], name,
-                            2 if child["dir"] else 1))
+            if child["dir"]:
+                dtype = 2
+            elif "symlink" in child:
+                dtype = 7
+            else:
+                dtype = 1
+            entries.append((ino_of[child_path], name, dtype))
         blob = bytearray()
         for i, (ino, name, dtype) in enumerate(entries):
             encoded = name.encode("utf-8")
@@ -175,6 +211,15 @@ def build_ext4(files: Dict[str, bytes], block_size: int = 4096,
                 break
             offset = block * block_size
             image[offset:offset + len(chunk)] = chunk
+
+    for path, target in links_list:
+        raw = target.encode("utf-8")
+        if len(raw) > 60:
+            raise ValueError(
+                f"symlink {path!r} target is too long for a fast link")
+        set_inode(ino_of[path], 0o120777, len(raw), False, 0, None)
+        base = (ino_of[path] - 1) * inode_size
+        inode_table[base + 0x28:base + 0x28 + len(raw)] = raw
 
     for leaf_block, leaf_data in leaves:
         offset = leaf_block * block_size

@@ -90,6 +90,8 @@ class App(TreeMixin, CopyMixin):
                                                       fill="y")
         ttk.Button(toolbar, text="Copy out…",
                    command=self.copy_out).pack(side="left")
+        ttk.Button(toolbar, text="Save .zip…",
+                   command=self.save_zip).pack(side="left", padx=(6, 0))
         ttk.Button(toolbar, text="Refresh",
                    command=self.refresh).pack(side="left", padx=(6, 0))
         ttk.Button(toolbar, text="Theme",
@@ -157,6 +159,7 @@ class App(TreeMixin, CopyMixin):
         self.root.bind("<Control-o>", lambda _e: self.choose_file())
         self.root.bind("<Control-u>", lambda _e: self.ask_url())
         self.root.bind("<Control-e>", lambda _e: self.copy_out())
+        self.root.bind("<Control-d>", lambda _e: self.save_zip())
         self.root.bind("<F5>", lambda _e: self.refresh())
         self.root.bind("<Control-t>", lambda _e: self.toggle_theme())
         self.root.bind("<Escape>", lambda _e: self.cancel())
