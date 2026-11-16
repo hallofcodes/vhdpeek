@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-11-16
+## [1.1.1] - 2026-11-16
 
 ### Added
 
@@ -16,6 +16,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **GUI save as zip** — `Ctrl+D` (or the `Save .zip…` button) archives the
   selected file or folder, with progress and cancellation. `Ctrl+E` still
   copies folders out as folders.
+
+### Fixed
+
+- Pinned the Linux CI matrix to Ubuntu 24.04: `ubuntu-latest` moved to
+  Ubuntu 26.04, whose runner image no longer ships Python 3.9. (The `v1.1.0`
+  tag never published because of this; its changes ship here instead.)
 
 ## [1.0.0] - 2026-10-26
 
@@ -104,7 +110,7 @@ diff against.
 - A malformed keyword argument made the GUI fail on construction.
 - Small images reported their size as `0.0 MiB`.
 
-[Unreleased]: https://github.com/ayomidelog/vhdpeek/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v1.1.0
+[Unreleased]: https://github.com/ayomidelog/vhdpeek/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/ayomidelog/vhdpeek/releases/tag/v1.1.1
 [1.0.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v1.0.0
 [0.1.0]: https://github.com/ayomidelog/vhdpeek/releases/tag/v0.1.0
